@@ -8,8 +8,8 @@ export const dynamoDB = DynamoDBDocumentClient.from(client);
 
 // Nombres de tablas desde variables de entorno
 export const TABLES = {
-  STUDENTS: process.env.STUDENTS_TABLE || 'USS-Students',
-  NOTIFICATIONS: process.env.NOTIFICATIONS_TABLE || 'USS-Notifications',
+  STUDENTS: process.env.STUDENTS_TABLE || 'USS_Students',
+  NOTIFICATIONS: process.env.NOTIFICATIONS_TABLE || 'USS_Notifications',
 };
 
 // Funciones helper para DynamoDB

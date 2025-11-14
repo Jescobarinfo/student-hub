@@ -11,6 +11,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  // Limpiar localStorage corrupto al cargar
+  useState(() => {
+    const userData = localStorage.getItem('user');
+    if (userData === 'undefined' || userData === 'null') {
+      localStorage.clear();
+    }
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -22,16 +30,19 @@ export default function LoginPage() {
         { rut, password }
       );
 
-      if (response.data.success) {
+      if (response.data.success && response.data.token && response.data.student) {
         // Guardar token y usuario
         localStorage.setItem('token', response.data.token);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('user', JSON.stringify(response.data.student));
         
         // Redirigir al dashboard
         router.push('/dashboard');
+      } else {
+        setError('Respuesta inválida del servidor');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Error al iniciar sesión');
+      console.error('Login error:', err);
+      setError(err.response?.data?.error || 'Error al iniciar sesión. Por favor, verifica que el backend esté funcionando.');
     } finally {
       setLoading(false);
     }

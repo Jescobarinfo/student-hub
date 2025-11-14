@@ -16,12 +16,14 @@ export interface Notification {
   title: string;
   message: string;
   read: boolean;
-  timestamp: string;
+  timestamp: string | number; // Puede ser ISO string o Unix timestamp
   metadata?: {
     courseCode?: string;
     courseName?: string;
     grade?: number;
     documentType?: string;
+    source?: string;
+    [key: string]: any; // Permite metadata adicional
   };
 }
 

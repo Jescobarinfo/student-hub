@@ -41,26 +41,42 @@ export default function DashboardPage() {
     
     setDarkMode(savedDarkMode);
 
-    if (!token || !userData) {
+    if (!token || !userData || userData === 'undefined') {
       router.push('/login');
       return;
     }
 
-    setUser(JSON.parse(userData));
-    loadNotifications(JSON.parse(userData).rut);
+    try {
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      loadNotifications(parsedUser.rut);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      router.push('/login');
+    }
   }, [router]);
 
   const loadNotifications = async (studentId: string) => {
     try {
+      console.log('Loading notifications for:', studentId);
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_API_URL}/notifications?studentId=${studentId}`
       );
       
+      console.log('Response:', response.data);
+      
       if (response.data.success) {
-        setNotifications(response.data.notifications);
+        // El backend devuelve 'data' no 'notifications'
+        setNotifications(response.data.data || []);
+      } else {
+        console.error('Failed to load notifications:', response.data);
+        setNotifications([]);
       }
     } catch (error) {
       console.error('Error loading notifications:', error);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -207,17 +223,19 @@ export default function DashboardPage() {
 
   // Estadísticas
   const stats = {
-    total: notifications.length,
-    unread: notifications.filter(n => n.isRead === 'false').length,
-    grades: notifications.filter(n => n.type === 'GRADE').length,
-    avgGrade: notifications
-      .filter(n => n.metadata?.grade)
-      .reduce((acc, n) => acc + (n.metadata?.grade || 0), 0) / 
-      notifications.filter(n => n.metadata?.grade).length || 0
+    total: notifications?.length || 0,
+    unread: notifications?.filter(n => n.isRead === 'false').length || 0,
+    grades: notifications?.filter(n => n.type === 'GRADE').length || 0,
+    avgGrade: (() => {
+      const gradeNotifications = notifications?.filter(n => n.metadata?.grade) || [];
+      if (gradeNotifications.length === 0) return 0;
+      const sum = gradeNotifications.reduce((acc, n) => acc + (n.metadata?.grade || 0), 0);
+      return sum / gradeNotifications.length;
+    })()
   };
 
   // Filtrado
-  const filteredNotifications = notifications
+  const filteredNotifications = (notifications || [])
     .filter(n => {
       if (filter === 'unread') return n.isRead === 'false';
       if (filter === 'grades') return n.type === 'GRADE';

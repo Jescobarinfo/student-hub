@@ -58,63 +58,115 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     }
 
     const body = JSON.parse(event.body);
-    const { studentId, courseCode, grade } = body;
-
-    // Validaciones
-    if (!studentId || !courseCode || grade === undefined) {
+    
+    // Detectar si es formato genérico o formato Banner
+    const isGenericFormat = body.type && body.title && body.message;
+    
+    if (isGenericFormat) {
+      // Formato genérico desde frontend
+      const { studentId, type, title, message, metadata } = body;
+      
+      if (!studentId || !type || !title || !message) {
+        return {
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: false,
+            error: {
+              code: 'MISSING_FIELDS',
+              message: 'studentId, type, title, and message are required',
+            },
+          }),
+        };
+      }
+      
+      // Crear notificación genérica
+      const notification: Notification = {
+        notificationId: uuidv4(),
+        studentId,
+        type,
+        title,
+        message,
+        read: false,
+        timestamp: Date.now(),
+        metadata: metadata || {},
+      };
+      
+      console.log('Creating generic notification:', notification);
+      await createNotification(notification);
+      
+      const response: APIResponse<Notification> = {
+        success: true,
+        data: notification,
+      };
+      
       return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          success: false,
-          error: {
-            code: 'MISSING_FIELDS',
-            message: 'studentId, courseCode, and grade are required',
-          },
-        }),
+        statusCode: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify(response),
+      };
+    } else {
+      // Formato Banner (courseCode, grade)
+      const { studentId, courseCode, grade } = body;
+
+      // Validaciones
+      if (!studentId || !courseCode || grade === undefined) {
+        return {
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            success: false,
+            error: {
+              code: 'MISSING_FIELDS',
+              message: 'studentId, courseCode, and grade are required',
+            },
+          }),
+        };
+      }
+
+      // Simular llamada a Banner Oracle
+      console.log('Calling Banner stored procedure...');
+      const bannerResult = await simulateBannerProcedure(studentId, courseCode, grade);
+
+      // Crear notificación en DynamoDB
+      const notification: Notification = {
+        notificationId: uuidv4(),
+        studentId,
+        type: 'GRADE',
+        title: 'Nueva nota publicada',
+        message: `Se ha publicado tu nota en ${bannerResult.courseName}: ${grade}`,
+        read: false,
+        timestamp: Date.now(),
+        metadata: {
+          courseCode,
+          courseName: bannerResult.courseName,
+          grade,
+        },
+      };
+
+      console.log('Creating notification in DynamoDB:', notification);
+      await createNotification(notification);
+
+      console.log('Notification created successfully');
+
+      // Response exitoso
+      const response: APIResponse<Notification> = {
+        success: true,
+        data: notification,
+      };
+
+      return {
+        statusCode: 201,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+        body: JSON.stringify(response),
       };
     }
-
-    // Simular llamada a Banner Oracle
-    console.log('Calling Banner stored procedure...');
-    const bannerResult = await simulateBannerProcedure(studentId, courseCode, grade);
-
-    // Crear notificación en DynamoDB
-    const timestamp = new Date().toISOString();
-    const notification: Notification = {
-      notificationId: uuidv4(),
-      studentId,
-      type: 'GRADE',
-      title: 'Nueva nota publicada',
-      message: `Se ha publicado tu nota en ${bannerResult.courseName}: ${grade}`,
-      read: false,
-      timestamp,
-      metadata: {
-        courseCode,
-        courseName: bannerResult.courseName,
-        grade,
-      },
-    };
-
-    console.log('Creating notification in DynamoDB:', notification);
-    await createNotification(notification);
-
-    console.log('Notification created successfully');
-
-    // Response exitoso
-    const response: APIResponse<Notification> = {
-      success: true,
-      data: notification,
-    };
-
-    return {
-      statusCode: 201,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-      body: JSON.stringify(response),
-    };
   } catch (error: any) {
     console.error('Error creating notification:', error);
 
