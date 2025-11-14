@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 
@@ -12,12 +12,12 @@ export default function LoginPage() {
   const router = useRouter();
 
   // Limpiar localStorage corrupto al cargar
-  useState(() => {
+  useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData === 'undefined' || userData === 'null') {
       localStorage.clear();
     }
-  });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +42,10 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.response?.data?.error || 'Error al iniciar sesión. Por favor, verifica que el backend esté funcionando.');
+      setError(
+        err.response?.data?.error ||
+        'Error al iniciar sesión. Por favor, verifica que el backend esté funcionando.'
+      );
     } finally {
       setLoading(false);
     }
