@@ -1,0 +1,7 @@
+# Forzar UTF-8 en Markdown y archivos de texto
+*.md text eol=lf working-tree-encoding=UTF-8
+*.txt text eol=lf working-tree-encoding=UTF-8
+
+# Opcional: otros tipos de archivo
+*.json text eol=lf working-tree-encoding=UTF-8
+*.yml  text eol=lf working-tree-encoding=UTF-8

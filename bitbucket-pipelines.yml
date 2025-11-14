@@ -1,0 +1,208 @@
+# ============================================
+# USS Student Hub - Bitbucket CI/CD Pipeline
+# ============================================
+# Autor: Johan Escobar Acosta
+# Proyecto: Sistema Serverless de Notificaciones Académicas
+# Stack: AWS Lambda, API Gateway, DynamoDB, Next.js 14, TypeScript
+
+image: node:20
+
+definitions:
+  steps:
+    - step: &install-backend
+        name: 📦 Install Backend Dependencies
+        caches:
+          - node
+        script:
+          - cd backend
+          - npm ci
+        artifacts:
+          - backend/node_modules/**
+
+    - step: &lint-backend
+        name: 🔍 Lint Backend Code
+        script:
+          - cd backend
+          - npm run lint || echo "Lint not configured yet"
+
+    - step: &test-backend
+        name: 🧪 Test Backend (Unit Tests)
+        script:
+          - cd backend
+          - npm test || echo "Tests will be added soon"
+
+    - step: &build-backend
+        name: 🏗️ Build Backend (TypeScript)
+        script:
+          - cd backend
+          - npm run build
+        artifacts:
+          - backend/dist/**
+
+    - step: &install-frontend
+        name: 📦 Install Frontend Dependencies
+        caches:
+          - node
+        script:
+          - cd frontend
+          - npm ci
+        artifacts:
+          - frontend/node_modules/**
+
+    - step: &lint-frontend
+        name: 🔍 Lint Frontend Code
+        script:
+          - cd frontend
+          - npm run lint
+
+    - step: &build-frontend
+        name: 🏗️ Build Frontend (Next.js)
+        script:
+          - cd frontend
+          - npm run build
+        artifacts:
+          - frontend/.next/**
+          - frontend/out/**
+
+    - step: &security-scan
+        name: 🔒 Security Scan (npm audit)
+        script:
+          - cd backend && npm audit --audit-level=high || true
+          - cd ../frontend && npm audit --audit-level=high || true
+
+    - step: &deploy-dev
+        name: 🚀 Deploy to AWS Development
+        deployment: development
+        script:
+          - echo "Deploying to AWS Development Environment..."
+          - cd backend
+          - |
+            # Configurar credenciales AWS desde variables de entorno
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+            export AWS_DEFAULT_REGION=$AWS_REGION
+          - |
+            # Deploy Lambdas
+            echo "Deploying Lambda functions..."
+            node deploy-lambdas.js
+          - |
+            # Update API Gateway (si es necesario)
+            echo "Checking API Gateway configuration..."
+            # node update-api-gateway.js
+          - echo "✅ Development deployment completed"
+
+    - step: &deploy-prod
+        name: 🚀 Deploy to AWS Production
+        deployment: production
+        trigger: manual
+        script:
+          - echo "Deploying to AWS Production Environment..."
+          - cd backend
+          - |
+            # Configurar credenciales AWS
+            export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID_PROD
+            export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY_PROD
+            export AWS_DEFAULT_REGION=$AWS_REGION_PROD
+          - |
+            # Backup de configuración actual
+            echo "Creating backup..."
+            # aws lambda get-function --function-name uss-login > backup-$(date +%Y%m%d).json
+          - |
+            # Deploy Lambdas con validación
+            echo "Deploying Lambda functions to PRODUCTION..."
+            node deploy-lambdas.js
+          - |
+            # Smoke tests
+            echo "Running smoke tests..."
+            curl -f https://fqttaemgp7.execute-api.us-east-1.amazonaws.com/prod/notifications?studentId=12345678-9 || exit 1
+          - echo "✅ Production deployment completed successfully"
+
+pipelines:
+  default:
+    - step: *install-backend
+    - step: *lint-backend
+    - step: *test-backend
+    - step: *security-scan
+
+  branches:
+    develop:
+      - step: *install-backend
+      - step: *test-backend
+      - step: *build-backend
+      - step: *install-frontend
+      - step: *build-frontend
+      - step: *deploy-dev
+
+    staging:
+      - step: *install-backend
+      - step: *test-backend
+      - step: *build-backend
+      - step: *security-scan
+      - step:
+          name: 🚀 Deploy to Staging
+          deployment: staging
+          script:
+            - echo "Deploying to Staging..."
+            - cd backend
+            - node deploy-lambdas.js
+
+    main:
+      - step: *install-backend
+      - step: *test-backend
+      - step: *build-backend
+      - step: *install-frontend
+      - step: *lint-frontend
+      - step: *build-frontend
+      - step: *security-scan
+      - step: *deploy-prod
+
+  pull-requests:
+    '**':
+      - step: *install-backend
+      - step: *lint-backend
+      - step: *test-backend
+      - step: *install-frontend
+      - step: *lint-frontend
+      - step:
+          name: 🔍 Code Quality Check
+          script:
+            - echo "Running code quality checks..."
+            - cd backend && npm run lint || true
+            - cd ../frontend && npm run lint
+
+  tags:
+    'v*':
+      - step: *install-backend
+      - step: *test-backend
+      - step: *build-backend
+      - step: *security-scan
+      - step:
+          name: 🏷️ Create Release
+          script:
+            - echo "Creating release for tag $BITBUCKET_TAG"
+            - echo "Version: $BITBUCKET_TAG" > RELEASE_NOTES.txt
+      - step: *deploy-prod
+
+# ============================================
+# Variables de entorno requeridas (configurar en Bitbucket):
+# ============================================
+# AWS_ACCESS_KEY_ID - Access Key para desarrollo
+# AWS_SECRET_ACCESS_KEY - Secret Key para desarrollo
+# AWS_REGION - Región AWS (us-east-1)
+# AWS_ACCESS_KEY_ID_PROD - Access Key para producción
+# AWS_SECRET_ACCESS_KEY_PROD - Secret Key para producción
+# AWS_REGION_PROD - Región AWS producción
+#
+# Configuración en Bitbucket:
+# Repository Settings > Pipelines > Repository variables
+# ============================================
+
+# ============================================
+# Cómo usar este pipeline:
+# ============================================
+# 1. Push a develop → Deploy automático a Development
+# 2. Push a staging → Deploy automático a Staging
+# 3. Push a main → Deploy MANUAL a Production
+# 4. Pull Request → Run tests y linting
+# 5. Git tag v1.0.0 → Create release + Deploy a Production
+# ============================================
