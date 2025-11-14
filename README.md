@@ -1,4 +1,4 @@
-# USS Student Hub - Sistema de Notificaciones Académicas
+# Student Hub - Sistema de Notificaciones Académicas
 
 [![AWS Serverless](https://img.shields.io/badge/AWS-Serverless-orange?logo=amazon-aws)](https://aws.amazon.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
