@@ -170,7 +170,7 @@ jobs:
       # Backend deploy
       - name: 📥 Install backend dependencies
         working-directory: backend
-        run: npm ci --production=false
+        run: npm install
 
       - name: 🔍 Debug backend folder
         working-directory: backend
